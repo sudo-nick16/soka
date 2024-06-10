@@ -1,0 +1,582 @@
+.intel_syntax noprefix
+num_len = 22
+print_num:
+push rbp
+mov rbp, rsp
+sub rsp, num_len
+mov r9, num_len
+dec r9
+mov byte ptr [rsp+r9], 10
+dec r9
+cmp rdi, 0
+jne L0
+mov byte ptr [rsp+r9], 48
+dec r9
+L0:
+cmp rdi, 0
+je L1
+mov rax, rdi
+mov rcx, 10
+cqo
+div rcx
+mov rdi, rax
+add edx, 48
+mov byte ptr [rsp+r9], dl
+dec r9
+jmp L0
+L1:
+inc r9
+mov rax, 1
+mov rdi, 1
+lea rsi, [rsp+r9]
+mov r8, num_len
+sub r8, r9
+mov rdx, r8
+syscall
+mov rsp, rbp
+pop rbp
+ret
+.global _start
+
+exit:
+push rbp
+mov rbp, rsp
+sub rsp, 0
+push 60
+push [rbp+16]
+pop rdi
+pop rax
+syscall
+push rax
+mov rsp, rbp
+pop rbp
+ret
+
+
+print:
+push rbp
+mov rbp, rsp
+sub rsp, 0
+push 1
+push 1
+push [rbp+16]
+push [rbp+24]
+pop rdx
+pop rsi
+pop rdi
+pop rax
+syscall
+push rax
+mov rsp, rbp
+pop rbp
+ret
+
+
+read:
+push rbp
+mov rbp, rsp
+sub rsp, 0
+push 0
+push 0
+push [rbp+16]
+push [rbp+24]
+pop rdx
+pop rsi
+pop rdi
+pop rax
+syscall
+push rax
+mov rsp, rbp
+pop rbp
+ret
+
+
+htons:
+push rbp
+mov rbp, rsp
+sub rsp, 0
+push [rbp+16]
+push 65280
+pop r8
+pop r9
+and r9, r8
+pushq r9
+push 8
+pop rcx
+pop r9
+shr r9, cl
+pushq r9
+push [rbp+16]
+push 255
+pop r8
+pop r9
+and r9, r8
+pushq r9
+push 8
+pop rcx
+pop r9
+shl r9, cl
+pushq r9
+pop r8
+pop r9
+or r9, r8
+pushq r9
+mov rax, rsp
+mov rsp, rbp
+pop rbp
+ret
+
+mov rsp, rbp
+pop rbp
+ret
+
+
+bind:
+push rbp
+mov rbp, rsp
+sub rsp, 0
+push 49
+push [rbp+16]
+push [rbp+24]
+push [rbp+32]
+pop rdx
+pop rsi
+pop rdi
+pop rax
+syscall
+push rax
+mov rax, rsp
+mov rsp, rbp
+pop rbp
+ret
+
+mov rsp, rbp
+pop rbp
+ret
+
+
+listen:
+push rbp
+mov rbp, rsp
+sub rsp, 0
+push 50
+push [rbp+16]
+push [rbp+24]
+pop rsi
+pop rdi
+pop rax
+syscall
+push rax
+mov rax, rsp
+mov rsp, rbp
+pop rbp
+ret
+
+mov rsp, rbp
+pop rbp
+ret
+
+
+accept:
+push rbp
+mov rbp, rsp
+sub rsp, 0
+push 43
+push [rbp+16]
+push [rbp+24]
+push [rbp+32]
+pop rdx
+pop rsi
+pop rdi
+pop rax
+syscall
+push rax
+mov rax, rsp
+mov rsp, rbp
+pop rbp
+ret
+
+mov rsp, rbp
+pop rbp
+ret
+
+
+printb:
+push rbp
+mov rbp, rsp
+sub rsp, 0
+push 1
+push 1
+push [rbp+16]
+push 1
+pop rdx
+pop rsi
+pop rdi
+pop rax
+syscall
+push rax
+mov rsp, rbp
+pop rbp
+ret
+
+
+memset:
+push rbp
+mov rbp, rsp
+sub rsp, 0
+push 0
+pop r8
+mov [rbp-8], r8
+.L1:
+push [rbp-8]
+push [rbp+32]
+pop r9
+pop r8
+cmp r8, r9
+jge .L2
+push [rbp+24]
+push [rbp-8]
+push 8
+pop r8
+pop rax
+imul r8
+mov rbx, rax
+pop [rbp+16+rbx]
+push 1
+push [rbp-8]
+pop r8
+pop r9
+add r8, r9
+mov [rbp-8], r8
+jmp .L1
+.L2:
+mov rsp, rbp
+pop rbp
+ret
+
+
+start_tcp_server:
+push rbp
+mov rbp, rsp
+sub rsp, 64
+push rax
+push [rbp+16]
+call htons
+pop rbx
+pop rbx
+push [rax]
+mov rax, rbx
+xor rbx, rbx
+pop r8
+mov [rbp-8], r8
+push 41
+push 2
+push 1
+push 0
+pop rdx
+pop rsi
+pop rdi
+pop rax
+syscall
+push rax
+pop r8
+mov [rbp-16], r8
+push [rbp-16]
+pop rdi
+call print_num
+push [rbp-16]
+push -1
+pop r9
+pop r8
+cmp r8, r9
+jne .CE3
+pushq offset .LC4
+pop rsi
+push 25
+mov rax, 1
+mov rdi, 1
+pop rdx
+syscall
+push 0
+mov rax, rsp
+mov rsp, rbp
+pop rbp
+ret
+
+
+.CE3:
+push 2
+push 0
+pop rbx
+pop rdx
+mov byte ptr [rbp-32+rbx], dl
+push 0
+push 1
+pop rbx
+pop rdx
+mov byte ptr [rbp-32+rbx], dl
+push [rbp-8]
+push 255
+pop r8
+pop r9
+and r9, r8
+pushq r9
+push 2
+pop rbx
+pop rdx
+mov byte ptr [rbp-32+rbx], dl
+push [rbp-8]
+push 65280
+pop r8
+pop r9
+and r9, r8
+pushq r9
+push 8
+pop rcx
+pop r9
+shr r9, cl
+pushq r9
+push 3
+pop rbx
+pop rdx
+mov byte ptr [rbp-32+rbx], dl
+push 0
+push 4
+pop rbx
+pop rdx
+mov byte ptr [rbp-32+rbx], dl
+push 0
+push 5
+pop rbx
+pop rdx
+mov byte ptr [rbp-32+rbx], dl
+push 0
+push 6
+pop rbx
+pop rdx
+mov byte ptr [rbp-32+rbx], dl
+push 0
+push 7
+pop rbx
+pop rdx
+mov byte ptr [rbp-32+rbx], dl
+push 8
+pop r8
+mov [rbp-40], r8
+.L5:
+push [rbp-40]
+push 16
+pop r9
+pop r8
+cmp r8, r9
+jge .L6
+push 0
+push [rbp-40]
+pop rbx
+pop rdx
+mov byte ptr [rbp-32+rbx], dl
+push 1
+push [rbp-40]
+pop r8
+pop r9
+add r8, r9
+mov [rbp-40], r8
+jmp .L5
+.L6:
+push rax
+push 16
+mov r10, rbp
+sub r10, 32
+push r10
+push [rbp-16]
+call bind
+pop rbx
+pop rbx
+pop rbx
+pop rbx
+push [rax]
+mov rax, rbx
+xor rbx, rbx
+push 0
+pop r9
+pop r8
+cmp r8, r9
+je .CE7
+pushq offset .LC8
+pop rsi
+push 16
+mov rax, 1
+mov rdi, 1
+pop rdx
+syscall
+push 0
+mov rax, rsp
+mov rsp, rbp
+pop rbp
+ret
+
+
+.CE7:
+push rax
+push 10
+push [rbp-16]
+call listen
+pop rbx
+pop rbx
+pop rbx
+push [rax]
+mov rax, rbx
+xor rbx, rbx
+push 0
+pop r9
+pop r8
+cmp r8, r9
+je .CE9
+pushq offset .LC10
+pop rsi
+push 18
+mov rax, 1
+mov rdi, 1
+pop rdx
+syscall
+push 0
+mov rax, rsp
+mov rsp, rbp
+pop rbp
+ret
+
+
+.CE9:
+pushq offset .LC11
+pop r8
+mov [rbp-56], r8
+pushq 29
+pop r8
+mov [rbp-64], r8
+push [rbp-64]
+pop rdi
+call print_num
+.L12:
+push 1
+push 1
+pop r9
+pop r8
+cmp r8, r9
+jne .L13
+push rax
+push 16
+push 0
+push 1
+pop r8
+pop rax
+imul r8
+mov rbx, rax
+pushq [rbp-48+rbx]
+push [rbp-16]
+call accept
+pop rbx
+pop rbx
+pop rbx
+pop rbx
+push [rax]
+mov rax, rbx
+xor rbx, rbx
+pop r8
+mov [rbp-72], r8
+push [rbp-72]
+pop rdi
+call print_num
+push [rbp-72]
+push -1
+pop r9
+pop r8
+cmp r8, r9
+jne .CE14
+pushq offset .LC15
+pop rsi
+push 19
+mov rax, 1
+mov rdi, 1
+pop rdx
+syscall
+push 0
+mov rax, rsp
+mov rsp, rbp
+pop rbp
+ret
+
+
+.CE14:
+push 1
+push [rbp-72]
+push [rbp-56]
+push [rbp-64]
+pop rdx
+pop rsi
+pop rdi
+pop rax
+syscall
+push rax
+pushq offset .LC16
+pop rsi
+push 18
+mov rax, 1
+mov rdi, 1
+pop rdx
+syscall
+push 48
+push [rbp-72]
+push 2
+pop rsi
+pop rdi
+pop rax
+syscall
+push rax
+jmp .L12
+.L13:
+mov rsp, rbp
+pop rbp
+ret
+
+
+main:
+push rbp
+mov rbp, rsp
+sub rsp, 0
+push rax
+push 8080
+call start_tcp_server
+pop rbx
+pop rax
+xor rbx, rbx
+push rax
+push 0
+call exit
+pop rbx
+pop rax
+xor rbx, rbx
+mov rsp, rbp
+pop rbp
+ret
+
+_start:
+call main
+
+EXIT:
+mov rax, 60
+mov rdi, 0
+syscall
+
+.data
+.LC4:
+	.string "could not create socket\n"
+.LC8:
+	.string "could not bind\n"
+.LC10:
+	.string "could not listen\n"
+.LC11:
+	.string "HTTP/1.1 200 OK\n\nhello world\n"
+.LC15:
+	.string "this ain't a client"
+.LC16:
+	.string "closing connection"

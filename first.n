@@ -1,0 +1,102 @@
+fn exit(code) {
+	syscall(60, code);
+}
+
+fn print(s, n) {
+	syscall(1, 1, s, n);
+}
+
+fn read(b, n) {
+	syscall(0, 0, b, n);
+}
+
+fn htons(num) {
+	return (((num & 0xFF00) >> 8) | ((num & 0x00FF) << 8));
+}
+
+fn bind(socket_fd, sockaddr, sockaddr_len) {
+	return syscall(49, socket_fd, sockaddr, sockaddr_len);
+}
+
+fn listen(socked_fd, queue_len) {
+	return syscall(50, socked_fd, queue_len);
+}
+
+fn accept(socked_fd, clientaddr, clientaddr_len) {
+	return syscall(43, socked_fd, clientaddr, clientaddr_len);
+}
+
+fn printb(s) {
+	syscall(1, 1, s, 1);
+}
+
+fn memset(dest, value, n) {
+	for i = 0; i < n; i += 1{
+		dest[i] = value;
+	}
+}
+
+fn start_tcp_server(port) {
+	let p = htons(port);
+
+	let fid = syscall(41, 2, 1, 0);
+	print_num(fid);
+
+	if fid == -1 {
+		print("could not create socket\n");
+		return;
+	}
+	
+	let addr[16] = 1;
+	// sin_family
+	addr[0] = 2;
+	addr[1] = 0;
+
+	// sin_port
+	addr[2] = (p & 0xFF);
+	addr[3] = ((p & 0xFF00) >> 8);
+
+	// sin_adrr
+	addr[4] = 0;
+	addr[5] = 0;
+	addr[6] = 0;
+	addr[7] = 0;
+
+	// padding to fit in with sockaddr
+	for i = 8; i < 16; i += 1 {
+		addr[i] = 0;
+	}
+
+	if bind(fid, addr, 16) != 0 {
+		print("could not bind\n");
+		return;
+	}
+
+	if listen(fid, 10) != 0 {
+		print("could not listen\n");
+		return;
+	}
+
+	let c[16] = 1;
+
+	let msg = "HTTP/1.1 200 OK\n\nhello world\n";
+	let n = len(msg);
+	print_num(n);
+	while 1 == 1 {
+		let cid = accept(fid, c[0], 16);
+		print_num(cid);
+		if cid == -1 {
+			print("this ain't a client");
+			return;
+		}
+		syscall(1, cid, msg, n);
+		print("closing connection");
+		syscall(48, cid, 2);
+	}
+}
+
+// main is the entrypoint
+fn main() {
+	start_tcp_server(8080);
+	exit(0);
+}
