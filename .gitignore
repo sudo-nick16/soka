@@ -1,1 +1,6 @@
 /target
+/bin
+first
+*.ns
+*.s
+*.o

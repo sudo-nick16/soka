@@ -26,9 +26,9 @@ pub struct Codegen {
     label: usize,
 }
 
-pub fn gen_filename(filename: &String) -> String {
+pub fn gen_filename(dir: &str, filename: &String) -> String {
     let name = filename.split(".").nth(0).unwrap_or("my_code");
-    name.to_string()
+    format!("{}/{}", dir, name)
 }
 
 pub fn get_jmp_instr(k: Kind) -> String {
@@ -172,7 +172,7 @@ impl Codegen {
         self.prepend_header();
         self.gen_code(&mut env, &ast);
         self.append_footer(&mut env, 0);
-        let bin_name = gen_filename(&filename);
+        let bin_name = gen_filename("bin", &filename);
         let asm_name = format!("{bin_name}.ns");
         let obj_name = format!("{bin_name}.o");
         println!("bin name: {}\nasm name: {}", bin_name, obj_name);
