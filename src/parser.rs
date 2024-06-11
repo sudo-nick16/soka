@@ -19,7 +19,7 @@ fn get_precedence(token: &Token) -> i64 {
         Kind::Assign | Kind::MulAssign | Kind::DivAssign | Kind::MinusAssign | Kind::PlusAssign => {
             0
         }
-        Kind::Lt | Kind::Lte | Kind::Gt | Kind::Gte => 0,
+        Kind::Lt | Kind::Lte | Kind::Gt | Kind::Gte | Kind::And | Kind::Or => 0,
         Kind::Plus | Kind::Minus => 1,
         Kind::Slash | Kind::Asterisk => 2,
         Kind::Eq | Kind::NotEq => 4,
@@ -38,7 +38,8 @@ fn get_assosciativity(token: &Token) -> i64 {
         Kind::Slash => 1,
         Kind::Assign | Kind::MulAssign | Kind::DivAssign | Kind::MinusAssign | Kind::PlusAssign => {
             0
-        }
+        },
+        Kind::Lt | Kind::Lte | Kind::Gt | Kind::Gte | Kind::And | Kind::Or => 0,
         _ => -1,
     }
 }
@@ -153,6 +154,13 @@ impl Parser {
                         }
                     }
                     _ => {
+                        if let Some(expr) = self.parse_expression(-1) {
+                            if self.curr_token_is(Kind::Semi) {
+                                self.advance();
+                                stmts.push(ExprStmt(expr));
+                                continue;
+                            }
+                        }
                         eprintln!(
                             "Error: Statement not implemented - token {:?}",
                             self.peek().unwrap()
@@ -331,6 +339,7 @@ impl Parser {
         self.advance();
         // condition
         let condition = self.parse_expression(-1)?;
+        println!("condition: {:?}", condition);
         match condition.clone() {
             BinaryExpr(bop, _, __) => op = bop,
             _ => {}

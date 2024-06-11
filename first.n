@@ -10,7 +10,7 @@ fn read(b, n) {
 	syscall(0, 0, b, n);
 }
 
-fn htons(num) {
+fn letobe(num) {
 	return (((num & 0xFF00) >> 8) | ((num & 0x00FF) << 8));
 }
 
@@ -20,6 +20,10 @@ fn bind(socket_fd, sockaddr, sockaddr_len) {
 
 fn listen(socked_fd, queue_len) {
 	return syscall(50, socked_fd, queue_len);
+}
+
+fn socket(domain, type, proto) {
+	return syscall(41, domain, type, proto);
 }
 
 fn accept(socked_fd, clientaddr, clientaddr_len) {
@@ -36,11 +40,18 @@ fn memset(dest, value, n) {
 	}
 }
 
-fn start_tcp_server(port) {
-	let p = htons(port);
+fn shutdown(fd, opts) {
+	return syscall(48, fd, opts);
+}
 
-	let fid = syscall(41, 2, 1, 0);
-	print_num(fid);
+fn write(fd, msg, len) {
+	return syscall(1, fd, msg, len);
+}
+
+fn start_tcp_server(port) {
+	let p = letobe(port);
+
+	let fid = socket(2, 1, 0);
 
 	if fid == -1 {
 		print("could not create socket\n");
@@ -62,36 +73,38 @@ fn start_tcp_server(port) {
 	addr[6] = 0;
 	addr[7] = 0;
 
-	// padding to fit in with sockaddr
+	// padding to fit in with sockaddr struct
 	for i = 8; i < 16; i += 1 {
 		addr[i] = 0;
 	}
 
 	if bind(fid, addr, 16) != 0 {
-		print("could not bind\n");
+		print("Could not bind\n");
 		return;
 	}
 
 	if listen(fid, 10) != 0 {
-		print("could not listen\n");
+		print("Could not listen\n");
 		return;
 	}
 
-	let c[16] = 1;
+	print("Listening on PORT ");
+	print_num(port);
 
 	let msg = "HTTP/1.1 200 OK\n\nhello world\n";
 	let n = len(msg);
-	print_num(n);
+
+	let c[16] = 1;
 	while 1 == 1 {
+		print("Waiting for the connection...\n");
 		let cid = accept(fid, c[0], 16);
-		print_num(cid);
 		if cid == -1 {
 			print("this ain't a client");
 			return;
 		}
-		syscall(1, cid, msg, n);
-		print("closing connection");
-		syscall(48, cid, 2);
+		write(cid, msg, n);
+		print("Closing connection\n");
+		shutdown(cid, 2);
 	}
 }
 

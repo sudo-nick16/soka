@@ -20,7 +20,7 @@ use super::asm::Register;
 pub struct Codegen {
     instrs: Vec<String>,
     global_strs: Vec<(String, String)>,
-    else_blocks: Vec<(Block, usize)>,
+    else_blocks: Vec<(Block, usize, Env)>,
     if_stmt_count: usize,
     funcs: HashMap<String, bool>,
     label: usize,
@@ -66,7 +66,7 @@ impl Loc {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Env {
     vars: HashMap<String, (Loc, Expr, usize)>,
     stack_off: isize,
@@ -109,9 +109,9 @@ impl Codegen {
         self.instrs.push(String::from("sub rsp, num_len\n"));
         self.instrs.push(String::from("mov r9, num_len\n"));
         self.instrs.push(String::from("dec r9\n"));
-        self.instrs
-            .push(String::from("mov byte ptr [rsp+r9], 10\n"));
-        self.instrs.push(String::from("dec r9\n"));
+        // self.instrs
+        //     .push(String::from("mov byte ptr [rsp+r9], 10\n"));
+        // self.instrs.push(String::from("dec r9\n"));
 
         self.instrs.push(String::from("cmp rdi, 0\n"));
         self.instrs.push(String::from("jne L0\n"));
@@ -149,15 +149,15 @@ impl Codegen {
 
     pub fn append_footer(&mut self, env: &mut Env, exit_code: i64) {
         self.instrs.push(String::from("_start:\n"));
-        self.instrs.push(String::from("call main\n"));
+        self.instrs.push(String::from("call fn_main\n"));
         self.instrs.push(String::from("\n"));
         self.instrs.push(format!(
-            "EXIT:\nmov rax, 60\nmov rdi, {}\nsyscall\n",
+            "_exit:\nmov rax, 60\nmov rdi, {}\nsyscall\n",
             exit_code
         ));
-        for (b, ip) in self.else_blocks.clone().iter() {
+        for (b, ip, ref else_env) in self.else_blocks.clone().iter() {
             self.instrs.push(format!("\n.E{}:\n", ip));
-            self.gen_code(env, &b);
+            self.gen_code(&mut else_env.clone(), &b);
             self.instrs.push(format!("jmp .CE{}\n", ip));
         }
         self.instrs.push(String::from("\n.data\n"));
@@ -184,12 +184,13 @@ impl Codegen {
             .arg("-Os")
             .arg("-o")
             .arg(obj_name.clone())
-            .arg("--")
+            // .arg("--")
+            .arg(asm_name)
             .spawn()
             .expect("Failed to run as");
-        let stdin = gas_cmd.stdin.as_mut().expect("Failed to open stdin");
+        // let stdin = gas_cmd.stdin.as_mut().expect("Failed to open stdin");
+        // stdin.write(content.as_bytes());
         println!("Assembly: \n{}", content);
-        stdin.write(content.as_bytes());
         gas_cmd.wait_with_output().expect("Failed to wait for as");
         let mut ld_cmd = Command::new("ld")
             .arg("-o")
@@ -232,6 +233,7 @@ impl Codegen {
                 _ => {}
             }
         }
+        // self.instrs.push(format!("add rsp, {}\n", ast.decl_size));
     }
 
     pub fn gen_import_stmt(&mut self, stmt: Stmt, env: &mut Env) {
@@ -268,7 +270,11 @@ impl Codegen {
                         op = binop;
                     }
                     _ => {
-                        assert!(false, "Error: Invalid condition in while statement");
+                        op = Eq;
+                        self.instrs.push(String::from("pushq 1\n"));
+                        self.instrs.push(String::from("pop r9\n"));
+                        self.instrs.push(String::from("pop r8\n"));
+                        self.instrs.push(String::from("cmp r8, r9\n"));
                     }
                 }
                 self.instrs
@@ -286,19 +292,30 @@ impl Codegen {
             Stmt::ForStmt(init, cond, step, block) => {
                 let cond_label = self.get_label();
                 let after_label = self.get_label();
-                let mut init_ident: String;
+                let init_ident: String;
+                let mut is_new_var = true;
                 match init {
                     AssignExpr(_, left, right) => {
                         init_ident = left.get_ident_literal().expect("Error: Invalid identifier");
-                        env.stack_off -= 8;
-                        let loc = Loc::new(Rbp, env.stack_off, 8);
-                        env.vars
-                            .insert(init_ident.clone(), (loc.clone(), *right.clone(), 8));
-                        self.gen_expr(*right, env);
-                        self.instrs.push(format!("pop r8\n"));
-                        self.instrs.push(format!("mov [{}], r8\n", loc.to_string()));
+                        if env.vars.contains_key(&init_ident.clone()) {
+                            is_new_var = false;
+                            let var_info =
+                                env.vars.get(&init_ident).expect("Error: Has to be there!");
+                            self.instrs
+                                .push(format!("mov [{}], r8\n", var_info.0.to_string()));
+                        } else {
+                            env.stack_off -= 8;
+                            let loc = Loc::new(Rbp, env.stack_off, 8);
+                            env.vars
+                                .insert(init_ident.clone(), (loc.clone(), *right.clone(), 8));
+                            self.gen_expr(*right, env);
+                            self.instrs.push(format!("pop r8\n"));
+                            self.instrs.push(format!("mov [{}], r8\n", loc.to_string()));
+                        }
                     }
                     _ => {
+                        assert!(false);
+                        // self.gen_expr(init, env);
                         return;
                     }
                 }
@@ -319,8 +336,10 @@ impl Codegen {
                 self.gen_expr(step, env);
                 self.instrs.push(format!("jmp .L{}\n", cond_label));
                 self.instrs.push(format!(".L{}:\n", after_label));
-                env.vars.remove(&init_ident);
-                env.stack_off += 8;
+                if is_new_var {
+                    env.vars.remove(&init_ident);
+                    env.stack_off += 8;
+                }
             }
             _ => {}
         }
@@ -329,14 +348,16 @@ impl Codegen {
     pub fn gen_if_else_stmt(&mut self, stmt: Stmt, env: &mut Env) {
         match stmt {
             IfElseStmt(op, condition, if_block, else_block) => {
-                self.gen_expr(condition, env);
-                let ec = self.if_stmt_count;
-                self.if_stmt_count += 1;
                 let ec = self.get_label();
+                self.gen_expr(condition, env);
+                self.if_stmt_count += 1;
                 let mut has_else = false;
                 if let Some(block) = else_block {
                     has_else = true;
-                    self.else_blocks.push((block, ec));
+                    // self.instrs.push(format!("\n.E{}:\n", ec));
+                    // self.gen_code(env, &block);
+                    // self.instrs.push(format!("jmp .CE{}\n", ec));
+                    self.else_blocks.push((block, ec, env.clone()));
                 }
                 match op {
                     Kind::Eq => {
@@ -465,13 +486,13 @@ impl Codegen {
                 for s in block.stmts.clone() {
                     match s {
                         Stmt::ReturnStmt(..) => {
-                            self.funcs.insert(fn_name.literal(), true);
+                            self.funcs.insert(format!("fn_{}", fn_name.literal()), true);
                         }
                         _ => {}
                     }
                 }
                 self.instrs.push(String::from("\n"));
-                self.instrs.push(format!("{}:\n", fn_name.literal()));
+                self.instrs.push(format!("fn_{}:\n", fn_name.literal()));
                 self.instrs.push(String::from("push rbp\n"));
                 self.instrs.push(String::from("mov rbp, rsp\n"));
                 self.instrs.push(format!("sub rsp, {}\n", block.decl_size));
@@ -495,13 +516,23 @@ impl Codegen {
                     .clone();
                 let loc = var_info.0;
                 self.gen_expr(*i, env);
-                self.instrs.push(format!("push {}\n", var_info.2));
-                self.instrs.push(String::from("pop r8\n"));
-                self.instrs.push(String::from("pop rax\n"));
-                self.instrs.push(String::from("imul r8\n"));
-                self.instrs.push(format!("mov rbx, rax\n"));
-                self.instrs
-                    .push(format!("pushq [{}+rbx]\n", loc.to_string()));
+                if var_info.2 == 1 {
+                    self.instrs.push(format!("pop rbx\n"));
+                    self.instrs
+                        .push(format!("mov r10, {}\n", loc.reg.to_string().to_lowercase()));
+                    self.instrs.push(format!("sub r10, {}\n", loc.offset.abs()));
+                    self.instrs.push(format!("push r10\n"));
+                } else {
+                    self.instrs.push(format!("push {}\n", var_info.2));
+
+                    self.instrs.push(String::from("pop r8\n"));
+                    self.instrs.push(String::from("pop rax\n"));
+                    self.instrs.push(String::from("imul r8\n"));
+
+                    self.instrs.push(format!("mov rbx, rax\n"));
+                    self.instrs
+                        .push(format!("pushq [{}+rbx]\n", loc.to_string()));
+                }
             }
             AssignExpr(op, left, right) => match *left {
                 StringLiteral(_) => {}
@@ -557,7 +588,7 @@ impl Codegen {
                         }
                         Kind::PlusAssign => {
                             self.instrs
-                                .push(format!("push [{}+rbx]\n", loc.to_string()));
+                                .push(format!("pushq [{}+rbx]\n", loc.to_string()));
                             self.instrs.push(String::from("pop r8\n"));
                             self.instrs.push(String::from("pop r9\n"));
                             self.instrs.push(String::from("add r8, r9\n"));
@@ -700,7 +731,7 @@ impl Codegen {
                 let var_info = env
                     .vars
                     .get(&ident)
-                    .expect("Error: Undeclared variable")
+                    .expect(format!("Error: Undeclared variable - {}", ident).as_str())
                     .clone();
                 if var_info.2 == 1 {
                     self.instrs.push(format!(
@@ -709,14 +740,14 @@ impl Codegen {
                     ));
                     self.instrs
                         .push(format!("sub r10, {}\n", var_info.0.offset.abs()));
-                    self.instrs.push(format!("push r10\n"));
+                    self.instrs.push(format!("pushq r10\n"));
                 } else {
                     self.instrs
-                        .push(format!("push [{}]\n", var_info.0.to_string()));
+                        .push(format!("pushq [{}]\n", var_info.0.to_string()));
                 }
             }
             Expr::BoolLiteral(b) => {
-                self.instrs.push(format!("push {}\n", b as usize));
+                self.instrs.push(format!("pushq {}\n", b as usize));
             }
             StringLiteral(lit) => {
                 let loc = format!(".LC{}", self.get_label());
@@ -734,7 +765,7 @@ impl Codegen {
                 "print_num" => {
                     assert!(args.len() == 1);
                     self.gen_expr(args[0].clone(), env);
-                    self.instrs.push(String::from("pop rdi\n"));
+                    self.instrs.push(String::from("popq rdi\n"));
                     self.instrs.push(String::from("call print_num\n"));
                 }
                 "len" => {
@@ -816,7 +847,7 @@ impl Codegen {
                     for arg in args.iter().rev() {
                         self.gen_expr(arg.clone(), env);
                     }
-                    self.instrs.push(format!("call {}\n", callee.literal()));
+                    self.instrs.push(format!("call fn_{}\n", callee.literal()));
                     for _ in 0..args.len() {
                         self.instrs.push(String::from("pop rbx\n"));
                     }

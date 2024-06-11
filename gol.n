@@ -1,0 +1,101 @@
+fn tl(y, w, x) {
+	return ((y - 1) * w + x - 1);
+}
+
+fn t(y, w, x) {
+	return ((y - 1) * w + x);
+}
+
+fn tr(y, w, x) {
+	return ((y - 1) * w + x + 1);
+}
+
+fn r(y, w, x) {
+	return (y * w + x + 1);
+}
+
+fn br(y, w, x) {
+	return ((y + 1) * w + x + 1);
+}
+
+fn b(y, w, x) {
+	return ((y + 1) * w + x);
+}
+
+fn bl(y, w, x) {
+	return ((y + 1) * w + x - 1);
+}
+
+fn l(y, w, x) {
+	return (y * w + x - 1);
+}
+
+fn printl(s, n) {
+	return syscall(1, 1, s, n); 
+}
+
+// an awfully slow game of life - i've never been so dissapointed in myself
+fn main() {
+	let width = 20;
+	let height = 10;
+	let bg[200] = 8;
+	let fg[200] = 8;
+
+	for y = 0; y < height; y += 1 {
+		for x = 0; x < width; x += 1 {
+			bg[y * width + x] = 0;
+			fg[y * width + x] = 0;
+		}
+	}
+
+	fg[50] = 1;
+	fg[70] = 1;
+	fg[69] = 1;
+	fg[71] = 1;
+
+	let live = 0;
+	let curr = 0;
+
+	while true {
+		for i = 0; i < height; i += 1 {
+			for j = 0; j < width; j += 1 {
+				curr = i * width + j;
+				if fg[curr] == 1 {
+					print("#");
+				} else {
+					print(".");
+				}  
+				bg[curr] = fg[curr];
+			}
+			print("\n");
+		}
+		print("\x1b[2J");
+		for y = 1; y < height - 1; y += 1 {
+			for x = 1; x < width - 1; x += 1 {
+				live =  bg[(y - 1) * width + x - 1] + 
+						bg[(y - 1) * width + x] +
+						bg[(y - 1) * width + x + 1] +
+						bg[y * width + x + 1] +
+						bg[(y + 1) * width + x + 1] +
+						bg[(y + 1) * width + x] +
+						bg[(y + 1) * width + x - 1] +
+						bg[y * width + x - 1];
+
+				curr = y * width + x;
+
+				if bg[curr] == 1 {
+					if live < 2 {
+						fg[curr] = 0;
+					}
+					if live > 3 {
+						fg[curr] = 0;
+					}
+				}  else {
+					if live == 3 {
+						fg[curr] = 1;
+					}
+				}
+			}
+		}
+	}
+}

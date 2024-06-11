@@ -15,6 +15,10 @@ impl Block {
             match stmt {
                 Stmt::LetStmt(..) => decl_size += get_decl_size(&stmt),
                 Stmt::FnStmt(..) => fn_count += 1,
+                Stmt::ForStmt(.., b) => {
+                    decl_size += 8;
+                    decl_size += b.decl_size;
+                }
                 _ => {}
             }
         }

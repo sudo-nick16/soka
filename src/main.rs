@@ -4,12 +4,15 @@ mod lexer;
 mod parser;
 mod token;
 
+use std::env;
+
 use codegen::x64::Codegen;
 use lexer::Lexer;
 use parser::Parser;
 
 fn main() {
-    let filename = String::from("first.n");
+    let args: Vec<String> = env::args().collect();
+    let filename = args.get(1).unwrap().to_owned();
     let mut lexer = Lexer::new(filename.clone()).unwrap();
     let tokens = Box::new(lexer.lex());
     println!("tokens: {:#?}", tokens);
