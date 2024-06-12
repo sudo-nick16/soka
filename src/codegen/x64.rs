@@ -6,7 +6,6 @@ use crate::ast::Expr::{
 use crate::lexer::strip_slashes;
 use crate::token::Kind::{self, Asterisk, Eq, Gt, Gte, Lt, Lte, Minus, NotEq, Plus, Slash};
 use std::collections::HashMap;
-use std::io::Write;
 use std::process::{Command, Stdio};
 use std::{fs, usize};
 
@@ -53,9 +52,6 @@ pub struct Loc {
 impl Loc {
     pub fn new(reg: Register, offset: isize, size: usize) -> Self {
         Self { reg, offset, size }
-    }
-    pub fn offby(&mut self, offby: isize) {
-        self.offset += offby;
     }
     pub fn to_string(&self) -> String {
         if self.offset < 0 {

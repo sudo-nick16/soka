@@ -166,13 +166,9 @@ impl Lexer {
                 },
                 '"' => match self.peek() {
                     Some(c) => {
-                        if c.is_ascii() {
-                            let literal = self.read_string();
-                            if self.current()?.eq(&'"') {
-                                Kind::String(literal)
-                            } else {
-                                Kind::Invalid
-                            }
+                        let literal = self.read_string();
+                        if self.current()?.eq(&'"') {
+                            Kind::String(literal)
                         } else {
                             Kind::Invalid
                         }
@@ -285,7 +281,7 @@ impl Lexer {
         let mut s = String::new();
         self.adv();
         while let Some(ch) = self.current() {
-            if ch.is_ascii() && ch.ne(&'"') {
+            if ch.ne(&'"') {
                 s.push(ch);
                 self.adv();
             } else {
