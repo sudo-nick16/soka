@@ -26,10 +26,6 @@ fn socket(domain, type, proto) {
 	return syscall(41, domain, type, proto);
 }
 
-fn accept(socked_fd, clientaddr, clientaddr_len) {
-	return syscall(43, socked_fd, clientaddr, clientaddr_len);
-}
-
 fn printb(s) {
 	syscall(1, 1, s, 1);
 }
@@ -48,12 +44,16 @@ fn write(fd, msg, len) {
 	return syscall(1, fd, msg, len);
 }
 
+fn accept(fd, addr, addr_len) {
+	return syscall(43, fd, addr, addr_len);
+}
+
 fn start_tcp_server(port) {
 	let p = letobe(port);
 
 	let fid = socket(2, 1, 0);
 
-	if fid == -1 {
+	if fid < 0 {
 		print("could not create socket\n");
 		return;
 	}
@@ -90,19 +90,23 @@ fn start_tcp_server(port) {
 
 	print("Listening on PORT ");
 	print_num(port);
+	print("\n");
 
 	let msg = "HTTP/1.1 200 OK\n\nhello world\n";
 	let n = len(msg);
 
-	let c[16] = 1;
-	while 1 == 1 {
+	let buf[16] = 0;
+
+	while true {
 		print("Waiting for the connection...\n");
-		let cid = accept(fid, c[0], 16);
-		if cid == -1 {
+ 		let cid = accept(fid, buf, 16);
+		if cid < 0 {
 			print("this ain't a client");
 			return;
 		}
-		write(cid, msg, n);
+		if write(cid, msg, n) < 0 {
+			print("Couldn't write to client!");
+		}
 		print("Closing connection\n");
 		shutdown(cid, 2);
 	}
@@ -110,6 +114,6 @@ fn start_tcp_server(port) {
 
 // main is the entrypoint
 fn main() {
-	start_tcp_server(8080);
+	start_tcp_server(5000);
 	exit(0);
 }

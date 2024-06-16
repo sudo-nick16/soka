@@ -482,7 +482,7 @@ impl Codegen {
                 for s in block.stmts.clone() {
                     match s {
                         Stmt::ReturnStmt(..) => {
-                            self.funcs.insert(format!("fn_{}", fn_name.literal()), true);
+                            self.funcs.insert(format!("{}", fn_name.literal()), true);
                         }
                         _ => {}
                     }
@@ -517,17 +517,23 @@ impl Codegen {
                     self.instrs
                         .push(format!("mov r10, {}\n", loc.reg.to_string().to_lowercase()));
                     self.instrs.push(format!("sub r10, {}\n", loc.offset.abs()));
+                    self.instrs.push(format!("add r10, rbx\n"));
                     self.instrs.push(format!("push r10\n"));
                 } else {
                     self.instrs.push(format!("push {}\n", var_info.2));
 
+                    self.instrs
+                        .push(format!("mov r10, {}\n", loc.reg.to_string().to_lowercase()));
+                    self.instrs.push(format!("sub r10, {}\n", loc.offset.abs()));
+
                     self.instrs.push(String::from("pop r8\n"));
                     self.instrs.push(String::from("pop rax\n"));
                     self.instrs.push(String::from("imul r8\n"));
-
                     self.instrs.push(format!("mov rbx, rax\n"));
-                    self.instrs
-                        .push(format!("pushq [{}+rbx]\n", loc.to_string()));
+
+                    self.instrs.push(format!("add r10, rbx\n"));
+
+                    self.instrs.push(format!("pushq [r10]\n"));
                 }
             }
             AssignExpr(op, left, right) => match *left {
@@ -836,7 +842,7 @@ impl Codegen {
                         self.instrs.push(format!("pop {}\n", REGISTERS[n - i - 1]));
                     }
                     self.instrs.push(String::from("syscall\n"));
-                    self.instrs.push(String::from("push rax\n"));
+                    self.instrs.push(String::from("pushq rax\n"));
                 }
                 _ => {
                     self.instrs.push(String::from("push rax\n"));

@@ -3,7 +3,6 @@ fn sleep(n) {
 }
 
 fn main() {
-
 	let width = 30;
 	let height = 20;
 	let bg[600] = 8;
@@ -45,7 +44,7 @@ fn main() {
 			}
 			print("\n");
 		}
-		print("\x1b[20A\x1b[30D");
+		print("\x1b[20A\x1b[20D");
 
 		for y = 1; y < height - 1; y += 1 {
 			for x = 1; x < width - 1; x += 1 {
